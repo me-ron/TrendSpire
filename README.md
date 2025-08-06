@@ -1,20 +1,19 @@
 # 📈 TrendSpire
 
-TrendSpire is a full-stack project that tracks and displays the **Top-K Trending Posts** in real-time using Redis and PostgreSQL. It’s designed to help you understand how scalable systems handle heavy hitters and frequent item queries in real-time scenarios.
+TrendSpire is a full-stack project that tracks and displays the **Top-K Trending Posts** in real-time using Redis and PostgreSQL. It’s designed to help understand how scalable systems handle heavy hitters and frequent item queries in real-time scenarios.
 
 ---
 
 ## 🧱 Tech Stack
 
 ### Backend
-- **Go + Gin** – High-performance web framework
-- **PostgreSQL** – Persistent storage for posts and likes
-- **Redis** – Real-time Top-K tracking using Sorted Sets
-- **Docker** – Containerized app for easy setup and deployment
+- **Go + Gin**
+- **PostgreSQL**
+- **Redis**
+- **Docker**
 
 ### Frontend
-- **React** – Simple interface to interact with posts and visualize trending content
-
+- **React** 
 ---
 
 ## 🚀 Features
