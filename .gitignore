@@ -1,0 +1,72 @@
+# ----------------
+# Go
+# ----------------
+/backend/bin/
+/backend/pkg/
+/backend/coverage.out
+/backend/.env
+/backend/*.exe
+/backend/*.test
+/backend/go.sum
+/backend/go.mod 
+
+# Go build artifacts
+*.out
+*.test
+
+# IDE/editor artifacts
+.vscode/
+.idea/
+*.swp
+*.swo
+*.DS_Store
+*.log
+
+# ----------------
+# Node/React
+# ----------------
+/frontend/node_modules/
+/frontend/build/
+/frontend/.env
+/frontend/.next/ 
+/frontend/.turbo/
+
+# Optional:
+/frontend/package-lock.json
+/frontend/yarn.lock
+/frontend/pnpm-lock.yaml
+
+# ----------------
+# Docker
+# ----------------
+**/.env
+**/docker.env
+docker-compose.override.yml
+
+# ----------------
+# OS/System Files
+# ----------------
+Thumbs.db
+.DS_Store
+*.log
+*.tmp
+
+# ----------------
+# Testing / Coverage
+# ----------------
+coverage/
+*.lcov
+*.coverage
+
+# ----------------
+# Redis / Postgres
+# ----------------
+/data/
+dump.rdb
+*.sql
+
+# ----------------
+# Misc
+# ----------------
+.env
+.env.*
