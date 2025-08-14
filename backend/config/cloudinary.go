@@ -2,21 +2,20 @@ package config
 
 import (
 	"log"
-	"os"
 
 	"github.com/cloudinary/cloudinary-go/v2"
 )
 
-func InitCloudinary() *cloudinary.Cloudinary {
-	cloudinaryURL := os.Getenv("CLOUDINARY_URL")
-	if cloudinaryURL == "" {
-		log.Fatal("CLOUDINARY_URL is not set in environment variables")
+func InitCloudinary(cfg *Config) *cloudinary.Cloudinary {
+	if cfg.CloudinaryURL == "" {
+		log.Fatal("❌ CLOUDINARY_URL is not set in configuration")
 	}
 
-	cld, err := cloudinary.NewFromURL(cloudinaryURL)
+	cld, err := cloudinary.NewFromURL(cfg.CloudinaryURL)
 	if err != nil {
-		log.Fatalf("Failed to initialize Cloudinary: %v", err)
+		log.Fatalf("❌ Failed to initialize Cloudinary: %v", err)
 	}
 
+	log.Println("✅ Connected to Cloudinary")
 	return cld
 }

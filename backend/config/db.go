@@ -1,47 +1,42 @@
 package config
 
 import (
-	"backend/internal/entity"
 	"fmt"
 	"log"
-	"os"
+	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
-var DB *gorm.DB
-
-func InitPostgres() *gorm.DB {
-	host := os.Getenv("DB_HOST")
-	user := os.Getenv("DB_USER")
-	password := os.Getenv("DB_PASSWORD")
-	dbName := os.Getenv("DB_NAME")
-	port := os.Getenv("DB_PORT")
-	sslMode := os.Getenv("DB_SSLMODE") 
-
+func InitDB(cfg *Config) *gorm.DB {
 	dsn := fmt.Sprintf(
-		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=UTC",
-		host, user, password, dbName, port, sslMode,
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		cfg.DBHost,
+		cfg.DBPort,
+		cfg.DBUser,
+		cfg.DBPassword,
+		cfg.DBName,
+		cfg.DBSSLMode,
 	)
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Info),
+	})
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Fatalf("❌ Failed to connect to database: %v", err)
 	}
 
-	DB = db
+	// Optional: configure connection pool
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatalf("❌ Failed to get DB instance: %v", err)
+	}
+	sqlDB.SetMaxOpenConns(20)
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetConnMaxLifetime(time.Hour)
+
+	log.Println("✅ Connected to Postgres database")
 	return db
-}
-
-func RunMigrations() {
-	err := DB.AutoMigrate(
-		&entity.User{},
-		&entity.Post{},
-		&entity.Comment{},
-		&entity.Like{},
-	)
-	if err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
-	}
 }
