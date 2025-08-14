@@ -2,7 +2,6 @@
 # Go
 # ----------------
 /backend/bin/
-/backend/pkg/
 /backend/coverage.out
 /backend/.env
 /backend/*.exe
