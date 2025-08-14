@@ -1,14 +1,16 @@
 package entity
 
 import (
-    "time"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 type User struct {
-	ID            uint   `gorm:"primaryKey"`
-	Username      string `gorm:"uniqueIndex;not null"`
-	Email         string `gorm:"uniqueIndex;not null"`
-	PasswordHash  string `gorm:"not null"`
+	ID            uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+	Username      string    `gorm:"uniqueIndex;not null"`
+	Email         string    `gorm:"uniqueIndex;not null"`
+	PasswordHash  string    `gorm:"not null"`
 	ProfilePicURL string
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
@@ -16,7 +18,7 @@ type User struct {
 }
 
 type UserInfo struct {
-    ID            uint   `gorm:"not null"`
-    Username      string `gorm:"not null"`
-    ProfilePicURL string
+	ID            uuid.UUID `gorm:"type:uuid;not null"`
+	Username      string    `gorm:"not null"`
+	ProfilePicURL string
 }
