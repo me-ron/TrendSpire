@@ -14,8 +14,9 @@ type User struct {
 	ProfilePicURL string
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
-	Posts         []Post
+	Posts         []Post `gorm:"foreignKey:AuthorID;references:ID"`
 }
+
 
 type UserInfo struct {
 	ID            uuid.UUID `gorm:"type:uuid;not null"`

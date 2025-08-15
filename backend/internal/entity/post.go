@@ -9,6 +9,7 @@ import (
 type Post struct {
 	ID        uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
 	Author    UserInfo  `gorm:"embedded"`
+	AuthorID  uuid.UUID `gorm:"type:uuid;not null"`
 	Title     string    `gorm:"not null"`
 	Content   string    `gorm:"type:text"`
 	ImageURL  string

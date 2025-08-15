@@ -7,10 +7,8 @@ import (
 )
 
 func main() {
-	// Load environment variables
 	cfg := config.LoadConfig()
 
-	// Init services
 	db := config.InitDB(cfg)
 	redisClient := config.InitRedis(cfg)
 	cloud := config.InitCloudinary(cfg)
