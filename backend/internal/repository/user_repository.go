@@ -2,6 +2,7 @@ package repository
 
 import (
 	"backend/internal/entity"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )

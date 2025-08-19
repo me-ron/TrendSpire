@@ -7,11 +7,16 @@ import (
 )
 
 func InitCloudinary(cfg *Config) *cloudinary.Cloudinary {
-	if cfg.CloudinaryURL == "" {
-		log.Fatal("❌ CLOUDINARY_URL is not set in configuration")
+	var cld *cloudinary.Cloudinary
+	var err error
+
+	if cfg.Cloudinary.CloudName != "" && cfg.Cloudinary.APIKey != "" && cfg.Cloudinary.APISecret != "" {
+		// Fallback to individual credentials
+		cld, err = cloudinary.NewFromParams(cfg.Cloudinary.CloudName, cfg.Cloudinary.APIKey , cfg.Cloudinary.APISecret)
+	} else {
+		log.Fatal("❌ Missing Cloudinary configuration (provide CLOUDINARY_URL or all of CloudName, CloudAPIKey, CloudAPISecret)")
 	}
 
-	cld, err := cloudinary.NewFromURL(cfg.CloudinaryURL)
 	if err != nil {
 		log.Fatalf("❌ Failed to initialize Cloudinary: %v", err)
 	}
