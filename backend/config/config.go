@@ -1,6 +1,7 @@
 package config
 
 import (
+	"backend/pkg/utils"
 	"log"
 	"time"
 
@@ -87,13 +88,13 @@ func LoadConfig() *Config {
 	cfg.JWT.RefreshSecret = viper.GetString("JWT_REFRESH_SECRET")
 	cfg.JWT.Issuer = viper.GetString("JWT_ISSUER")
 
-	accessExpire, err := time.ParseDuration(viper.GetString("JWT_ACCESS_EXPIRE"))
+	accessExpire, err := utils.ParseDuration(viper.GetString("JWT_ACCESS_EXPIRE"))
 	if err != nil {
 		log.Fatal("invalid JWT_ACCESS_EXPIRE format")
 	}
 	cfg.JWT.AccessExpire = accessExpire
 
-	refreshExpire, err := time.ParseDuration(viper.GetString("JWT_REFRESH_EXPIRE"))
+	refreshExpire, err := utils.ParseDuration(viper.GetString("JWT_REFRESH_EXPIRE"))
 	if err != nil {
 		log.Fatal("invalid JWT_REFRESH_EXPIRE format")
 	}
