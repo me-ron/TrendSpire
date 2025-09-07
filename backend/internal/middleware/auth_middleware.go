@@ -28,7 +28,6 @@ func AuthMiddleware(jwtService jwt.JWTService) gin.HandlerFunc {
 			return
 		}
 
-		// Attach user claims to context for handlers
 		c.Set("user", claims)
 		c.Next()
 	}

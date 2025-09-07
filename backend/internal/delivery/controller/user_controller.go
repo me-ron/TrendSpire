@@ -3,6 +3,7 @@ package controller
 import (
 	"backend/internal/entity"
 	"backend/internal/usecase"
+	"backend/pkg/jwt"
 	"context"
 	"net/http"
 
@@ -64,13 +65,19 @@ func (uc *UserController) Login(c *gin.Context) {
 
 // GET /profile (protected)
 func (uc *UserController) GetProfile(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	claimsValue, exists := c.Get("user")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
-	user, err := uc.userUsecase.GetProfile(context.Background(), userID.(string))
+	claims, ok := claimsValue.(*jwt.Claims)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+		return
+	}
+
+	user, err := uc.userUsecase.GetProfile(c.Request.Context(), claims.UserID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
@@ -78,3 +85,4 @@ func (uc *UserController) GetProfile(c *gin.Context) {
 
 	c.JSON(http.StatusOK, user)
 }
+
