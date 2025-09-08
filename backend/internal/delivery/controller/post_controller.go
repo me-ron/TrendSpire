@@ -18,29 +18,35 @@ func NewPostController(postUsecase usecase.PostUsecase) *PostController {
 	return &PostController{postUsecase: postUsecase}
 }
 
-// CreatePost (Authenticated)
 func (pc *PostController) CreatePost(c *gin.Context) {
-	var input struct {
-		Title   string `json:"title" binding:"required"`
-		Content string `json:"content" binding:"required"`
+	type CreatePostInput struct {
+		Title    string `json:"title" binding:"required"`
+		Content  string `json:"content" binding:"required"`
+		ImageURL string `json:"image_url"`
 	}
+	var input CreatePostInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Extract user claims from context
 	claims, exists := c.Get("user")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
-	userClaims := claims.(jwt.UserClaims)
+	userClaims := claims.(*jwt.Claims)
+	userID, err := uuid.Parse(userClaims.UserID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
+		return
+	}
 
 	post := &entity.Post{
-		AuthorID: userClaims.ID, // Always use logged-in user as author
+		AuthorID: userID,
 		Title:    input.Title,
 		Content:  input.Content,
+		ImageURL: input.ImageURL,
 	}
 
 	if err := pc.postUsecase.CreatePost(c.Request.Context(), post); err != nil {
@@ -51,7 +57,7 @@ func (pc *PostController) CreatePost(c *gin.Context) {
 	c.JSON(http.StatusCreated, post)
 }
 
-// GetPostByID (Public)
+
 func (pc *PostController) GetPostByID(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := uuid.Parse(idParam)
@@ -69,7 +75,6 @@ func (pc *PostController) GetPostByID(c *gin.Context) {
 	c.JSON(http.StatusOK, post)
 }
 
-// GetAllPosts (Public)
 func (pc *PostController) GetAllPosts(c *gin.Context) {
 	posts, err := pc.postUsecase.GetAllPosts(c.Request.Context())
 	if err != nil {
@@ -79,8 +84,12 @@ func (pc *PostController) GetAllPosts(c *gin.Context) {
 	c.JSON(http.StatusOK, posts)
 }
 
-// UpdatePost (Authenticated + Ownership check)
 func (pc *PostController) UpdatePost(c *gin.Context) {
+	type UpdatePostInput struct {
+		Title    *string `json:"title"`
+		Content  *string `json:"content"`
+		ImageURL *string `json:"image_url"`
+	}
 	idParam := c.Param("id")
 	id, err := uuid.Parse(idParam)
 	if err != nil {
@@ -88,39 +97,44 @@ func (pc *PostController) UpdatePost(c *gin.Context) {
 		return
 	}
 
-	var input struct {
-		Title   string `json:"title"`
-		Content string `json:"content"`
-	}
+	var input UpdatePostInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Extract claims
 	claims, exists := c.Get("user")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
-	userClaims := claims.(jwt.UserClaims)
+	userClaims := claims.(*jwt.Claims)
+	userID, err := uuid.Parse(userClaims.UserID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
+		return
+	}
 
-	// Fetch existing post
 	existingPost, err := pc.postUsecase.GetPostByID(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "post not found"})
 		return
 	}
 
-	// Ownership check
-	if existingPost.AuthorID != userClaims.ID {
+	if existingPost.AuthorID != userID {
 		c.JSON(http.StatusForbidden, gin.H{"error": "you are not allowed to update this post"})
 		return
 	}
 
-	// Update fields
-	existingPost.Title = input.Title
-	existingPost.Content = input.Content
+	if input.Title != nil {
+		existingPost.Title = *input.Title
+	}
+	if input.Content != nil {
+		existingPost.Content = *input.Content
+	}
+	if input.ImageURL != nil {
+		existingPost.ImageURL = *input.ImageURL
+	}
 
 	if err := pc.postUsecase.UpdatePost(c.Request.Context(), existingPost); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update post"})
@@ -130,7 +144,7 @@ func (pc *PostController) UpdatePost(c *gin.Context) {
 	c.JSON(http.StatusOK, existingPost)
 }
 
-// DeletePost (Authenticated + Ownership check)
+
 func (pc *PostController) DeletePost(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := uuid.Parse(idParam)
@@ -139,23 +153,25 @@ func (pc *PostController) DeletePost(c *gin.Context) {
 		return
 	}
 
-	// Extract claims
 	claims, exists := c.Get("user")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
-	userClaims := claims.(jwt.UserClaims)
+	userClaims := claims.(*jwt.Claims)
+	userID, err := uuid.Parse(userClaims.UserID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
+		return
+	}
 
-	// Fetch existing post
 	existingPost, err := pc.postUsecase.GetPostByID(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "post not found"})
 		return
 	}
 
-	// Ownership check
-	if existingPost.AuthorID != userClaims.ID {
+	if existingPost.AuthorID != userID {
 		c.JSON(http.StatusForbidden, gin.H{"error": "you are not allowed to delete this post"})
 		return
 	}
