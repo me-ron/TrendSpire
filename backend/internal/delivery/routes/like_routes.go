@@ -9,7 +9,7 @@ func LikeRoutes(r *gin.RouterGroup, likeController *controller.LikeController, a
 	auth := r.Group("/")
 	auth.Use(authMiddleware)
 	{
-		auth.POST("/:postId/like", likeController.ToggleLike)    
-		auth.GET("/:postId/likes", likeController.GetLikesByPost) 
+		auth.POST("/:post_id", likeController.ToggleLike)    
+		auth.GET("/:post_id", likeController.GetLikesByPost) 
 	}
 }

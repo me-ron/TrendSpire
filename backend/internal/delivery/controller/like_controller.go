@@ -21,7 +21,7 @@ func (lc *LikeController) ToggleLike(c *gin.Context) {
 	postIDParam := c.Param("post_id")
 	postID, err := uuid.Parse(postIDParam)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post ID"})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 

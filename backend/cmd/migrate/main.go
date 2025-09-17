@@ -25,5 +25,21 @@ func main() {
 		log.Fatalf("❌ Migration failed: %v", err)
 	}
 
+	if db.Migrator().HasColumn(&entity.Post{}, "username") {
+		if err := db.Migrator().DropColumn(&entity.Post{}, "username"); err != nil {
+			log.Fatalf("❌ Failed to drop username column: %v", err)
+		}
+	}
+	if db.Migrator().HasColumn(&entity.Like{}, "username") {
+		if err := db.Migrator().DropColumn(&entity.Like{}, "username"); err != nil {
+			log.Fatalf("❌ Failed to drop username column: %v", err)
+		}
+	}
+	if db.Migrator().HasColumn(&entity.Comment{}, "username") {
+		if err := db.Migrator().DropColumn(&entity.Comment{}, "username"); err != nil {
+			log.Fatalf("❌ Failed to drop username column: %v", err)
+		}
+	}
+
 	log.Println("✅ Migrations completed successfully")
 }

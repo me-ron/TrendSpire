@@ -3,6 +3,7 @@ package controller
 import (
 	"backend/internal/entity"
 	"backend/internal/usecase"
+	"backend/pkg/jwt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -18,19 +19,29 @@ func NewCommentController(uc usecase.CommentUsecase) *CommentController {
 }
 
 func (c *CommentController) CreateComment(ctx *gin.Context) {
+    claims, exists := ctx.Get("user")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	userClaims := claims.(*jwt.Claims)
 	var req entity.Comment
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+    if err := ctx.ShouldBindJSON(&req); err != nil {
+        ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+        return
+    }
+	userID, err := uuid.Parse(userClaims.UserID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
 		return
 	}
-
-	if err := c.uc.CreateComment(ctx, &req); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	ctx.JSON(http.StatusCreated, req)
+    req.UserID = userID
+    if err := c.uc.CreateComment(ctx, &req); err != nil {
+        ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+    ctx.JSON(http.StatusCreated, req)
 }
-
 func (c *CommentController) UpdateComment(ctx *gin.Context) {
 	id, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
@@ -66,7 +77,6 @@ func (c *CommentController) DeleteComment(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "Comment deleted"})
 }
 
-// Get comments by post ID
 func (c *CommentController) GetCommentsByPostID(ctx *gin.Context) {
 	postID, err := uuid.Parse(ctx.Param("postID"))
 	if err != nil {

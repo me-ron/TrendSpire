@@ -14,8 +14,8 @@ type Post struct {
 	ImageURL  string
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	Likes     []Like
-	Comments  []Comment
+	Likes    []Like    `gorm:"foreignKey:PostID"`
+	Comments []Comment `gorm:"foreignKey:PostID"`
 }
 
 type Like struct {
