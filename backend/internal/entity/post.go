@@ -8,7 +8,6 @@ import (
 
 type Post struct {
 	ID        uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
-	Author    UserInfo  `gorm:"embedded"`
 	AuthorID  uuid.UUID `gorm:"type:uuid;not null"`
 	Title     string    `gorm:"not null"`
 	Content   string    `gorm:"type:text"`
@@ -21,14 +20,14 @@ type Post struct {
 
 type Like struct {
 	ID        uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
-	User      UserInfo  `gorm:"embedded"`
-	PostID    uuid.UUID `gorm:"type:uuid;not null;index"`
+	UserID    uuid.UUID `gorm:"type:uuid;not null;index"` 
+	PostID    uuid.UUID `gorm:"type:uuid;not null;index"` 
 	CreatedAt time.Time
 }
 
 type Comment struct {
 	ID        uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
-	User      UserInfo  `gorm:"embedded"`
+	UserID    uuid.UUID `gorm:"type:uuid;not null;index"`
 	PostID    uuid.UUID `gorm:"type:uuid;not null;index"`
 	Content   string    `gorm:"type:text;not null"`
 	CreatedAt time.Time

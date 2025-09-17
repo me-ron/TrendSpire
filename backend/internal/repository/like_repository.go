@@ -25,7 +25,9 @@ func NewLikeRepositoryGorm(db *gorm.DB) LikeRepository {
 
 func (r *likeRepositoryGorm) FindByPostID(ctx context.Context, postID uuid.UUID) ([]entity.Like, error) {
 	var likes []entity.Like
-	err := r.db.WithContext(ctx).Where("post_id = ?", postID).Find(&likes).Error
+	err := r.db.WithContext(ctx).
+		Where("post_id = ?", postID).
+		Find(&likes).Error
 	return likes, err
 }
 
@@ -41,7 +43,7 @@ func (r *likeRepositoryGorm) Exists(ctx context.Context, postID, userID uuid.UUI
 func (r *likeRepositoryGorm) ToggleLike(ctx context.Context, like *entity.Like) error {
 	var existing entity.Like
 	err := r.db.WithContext(ctx).
-		Where("user_id = ? AND post_id = ?", like.User.ID, like.PostID).
+		Where("user_id = ? AND post_id = ?", like.UserID, like.PostID). // ✅ fixed
 		First(&existing).Error
 
 	if err == nil {
@@ -51,7 +53,6 @@ func (r *likeRepositoryGorm) ToggleLike(ctx context.Context, like *entity.Like) 
 		return err
 	}
 
-	// Assign a new UUID if not set
 	if like.ID == uuid.Nil {
 		like.ID = uuid.New()
 	}
