@@ -13,6 +13,7 @@ type CommentUsecase interface {
 	UpdateComment(ctx context.Context, comment *entity.Comment) error
 	DeleteComment(ctx context.Context, commentID uuid.UUID) error
 	GetCommentsByPostID(ctx context.Context, postID uuid.UUID) ([]entity.Comment, error)
+	GetCommentByID(ctx context.Context, id uuid.UUID) (*entity.Comment, error)
 }
 
 type commentUsecase struct {
@@ -37,4 +38,8 @@ func (uc *commentUsecase) DeleteComment(ctx context.Context, commentID uuid.UUID
 
 func (uc *commentUsecase) GetCommentsByPostID(ctx context.Context, postID uuid.UUID) ([]entity.Comment, error) {
 	return uc.repo.FindByPostID(ctx, postID)
+}
+
+func (uc *commentUsecase) GetCommentByID(ctx context.Context, id uuid.UUID) (*entity.Comment, error) {
+	return uc.repo.GetCommentByID(ctx, id)
 }

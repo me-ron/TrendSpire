@@ -63,7 +63,6 @@ func (uc *UserController) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-// GET /profile (protected)
 func (uc *UserController) GetProfile(c *gin.Context) {
 	claimsValue, exists := c.Get("user")
 	if !exists {

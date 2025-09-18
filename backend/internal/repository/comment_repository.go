@@ -13,6 +13,7 @@ type CommentRepository interface {
 	Update(ctx context.Context, comment *entity.Comment) error
 	Delete(ctx context.Context, commentID uuid.UUID) error
 	FindByPostID(ctx context.Context, postID uuid.UUID) ([]entity.Comment, error)
+	GetCommentByID(ctx context.Context, id uuid.UUID) (*entity.Comment, error)
 }
 
 type commentRepositoryGorm struct {
@@ -24,7 +25,6 @@ func NewCommentRepositoryGorm(db *gorm.DB) CommentRepository {
 }
 
 func (r *commentRepositoryGorm) Create(ctx context.Context, comment *entity.Comment) error {
-	// Ensure a new UUID is assigned if not already set
 	if comment.ID == uuid.Nil {
 		comment.ID = uuid.New()
 	}
@@ -43,4 +43,12 @@ func (r *commentRepositoryGorm) FindByPostID(ctx context.Context, postID uuid.UU
 	var comments []entity.Comment
 	err := r.db.WithContext(ctx).Where("post_id = ?", postID).Find(&comments).Error
 	return comments, err
+}
+
+func (r *commentRepositoryGorm) GetCommentByID(ctx context.Context, id uuid.UUID) (*entity.Comment, error) {
+    var comment entity.Comment
+    if err := r.db.WithContext(ctx).First(&comment, "id = ?", id).Error; err != nil {
+        return nil, err
+    }
+    return &comment, nil
 }
