@@ -4,6 +4,7 @@ import (
 	"backend/internal/entity"
 	"backend/internal/usecase"
 	"backend/pkg/jwt"
+	"backend/pkg/response"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -19,148 +20,159 @@ func NewCommentController(uc usecase.CommentUsecase) *CommentController {
 }
 
 func (c *CommentController) CreateComment(ctx *gin.Context) {
-    claims, exists := ctx.Get("user")
-    if !exists {
-        ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-        return
-    }
-    userClaims := claims.(*jwt.Claims)
+	claims, exists := ctx.Get("user")
+	if !exists {
+		response.Error(ctx, http.StatusUnauthorized, "Unauthorized", []response.APIError{
+			{Code: "UNAUTHORIZED", Detail: "Missing or invalid authentication token"},
+		})
+		return
+	}
+	userClaims := claims.(*jwt.Claims)
 
-    // Extract post ID from path
-    postIDParam := ctx.Param("post_id")
-    postID, err := uuid.Parse(postIDParam)
-    if err != nil {
-        ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid post ID"})
-        return
-    }
-
-    var req struct {
-        Content string `json:"content" binding:"required"`
-    }
-    if err := ctx.ShouldBindJSON(&req); err != nil {
-        ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
-        return
-    }
-
-    userID, err := uuid.Parse(userClaims.UserID)
-    if err != nil {
-        ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
-        return
-    }
-
-    comment := entity.Comment{
-        UserID:  userID,
-        PostID:  postID,
-        Content: req.Content,
-    }
-
-    if err := c.uc.CreateComment(ctx, &comment); err != nil {
-        ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
-
-    ctx.JSON(http.StatusCreated, comment)
-}
-
-func (c *CommentController) UpdateComment(ctx *gin.Context) {
-    id, err := uuid.Parse(ctx.Param("id"))
-    if err != nil {
-        ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid comment ID"})
-        return
-    }
-
-    claims, exists := ctx.Get("user")
-    if !exists {
-        ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-        return
-    }
-    userClaims := claims.(*jwt.Claims)
-    userID, err := uuid.Parse(userClaims.UserID)
-    if err != nil {
-        ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-        return
-    }
-
-    existingComment, err := c.uc.GetCommentByID(ctx, id)
+	postID, err := uuid.Parse(ctx.Param("post_id"))
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": "Comment not found"})
+		response.Error(ctx, http.StatusBadRequest, "Invalid post ID", []response.APIError{
+			{Field: "post_id", Code: "INVALID_UUID", Detail: err.Error()},
+		})
 		return
 	}
 
-    if existingComment.UserID != userID {
-        ctx.JSON(http.StatusForbidden, gin.H{"error": "You can only update your own comments"})
-        return
-    }
+	var req struct {
+		Content string `json:"content" binding:"required"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, "Invalid input", []response.APIError{
+			{Field: "content", Code: "INVALID_INPUT", Detail: err.Error()},
+		})
+		return
+	}
 
-    var req struct {
-        Content string `json:"content" binding:"required"`
-    }
-    if err := ctx.ShouldBindJSON(&req); err != nil {
-        ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
-        return
-    }
+	userID, _ := uuid.Parse(userClaims.UserID)
+	comment := entity.Comment{
+		UserID:  userID,
+		PostID:  postID,
+		Content: req.Content,
+	}
 
-    existingComment.Content = req.Content
-
-    if err := c.uc.UpdateComment(ctx, existingComment); err != nil {
-        ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
-
-    ctx.JSON(http.StatusOK, existingComment)
+	if err := c.uc.CreateComment(ctx, &comment); err != nil {
+		response.Error(ctx, http.StatusInternalServerError, "Failed to create comment", []response.APIError{
+			{Code: "DB_ERROR", Detail: err.Error()},
+		})
+		return
+	}
+	response.Success(ctx, http.StatusCreated, "Comment created", comment)
 }
 
+func (c *CommentController) UpdateComment(ctx *gin.Context) {
+	id, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "Invalid comment ID", []response.APIError{
+			{Field: "id", Code: "INVALID_UUID", Detail: err.Error()},
+		})
+		return
+	}
+
+	claims, exists := ctx.Get("user")
+	if !exists {
+		response.Error(ctx, http.StatusUnauthorized, "Unauthorized", []response.APIError{
+			{Code: "UNAUTHORIZED", Detail: "Missing or invalid authentication token"},
+		})
+		return
+	}
+	userClaims := claims.(*jwt.Claims)
+	userID, _ := uuid.Parse(userClaims.UserID)
+
+	existing, err := c.uc.GetCommentByID(ctx, id)
+	if err != nil {
+		response.Error(ctx, http.StatusNotFound, "Comment not found", []response.APIError{
+			{Field: "id", Code: "NOT_FOUND", Detail: err.Error()},
+		})
+		return
+	}
+	if existing.UserID != userID {
+		response.Error(ctx, http.StatusForbidden, "Forbidden", []response.APIError{
+			{Code: "FORBIDDEN", Detail: "You can only update your own comments"},
+		})
+		return
+	}
+
+	var req struct {
+		Content string `json:"content" binding:"required"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Error(ctx, http.StatusBadRequest, "Invalid input", []response.APIError{
+			{Field: "content", Code: "INVALID_INPUT", Detail: err.Error()},
+		})
+		return
+	}
+
+	existing.Content = req.Content
+	if err := c.uc.UpdateComment(ctx, existing); err != nil {
+		response.Error(ctx, http.StatusInternalServerError, "Failed to update comment", []response.APIError{
+			{Code: "DB_ERROR", Detail: err.Error()},
+		})
+		return
+	}
+	response.Success(ctx, http.StatusOK, "Comment updated", existing)
+}
 
 func (c *CommentController) DeleteComment(ctx *gin.Context) {
-    id, err := uuid.Parse(ctx.Param("id"))
-    if err != nil {
-        ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid comment ID"})
-        return
-    }
+	id, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "Invalid comment ID", []response.APIError{
+			{Field: "id", Code: "INVALID_UUID", Detail: err.Error()},
+		})
+		return
+	}
 
-    claims, exists := ctx.Get("user")
-    if !exists {
-        ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-        return
-    }
-    userClaims := claims.(*jwt.Claims)
-    userID, err := uuid.Parse(userClaims.UserID)
-    if err != nil {
-        ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-        return
-    }
+	claims, exists := ctx.Get("user")
+	if !exists {
+		response.Error(ctx, http.StatusUnauthorized, "Unauthorized", []response.APIError{
+			{Code: "UNAUTHORIZED", Detail: "Missing or invalid authentication token"},
+		})
+		return
+	}
+	userClaims := claims.(*jwt.Claims)
+	userID, _ := uuid.Parse(userClaims.UserID)
 
-    existing, err := c.uc.GetCommentByID(ctx, id)
-    if err != nil {
-        ctx.JSON(http.StatusNotFound, gin.H{"error": "Comment not found"})
-        return
-    }
+	existing, err := c.uc.GetCommentByID(ctx, id)
+	if err != nil {
+		response.Error(ctx, http.StatusNotFound, "Comment not found", []response.APIError{
+			{Field: "id", Code: "NOT_FOUND", Detail: err.Error()},
+		})
+		return
+	}
+	if existing.UserID != userID {
+		response.Error(ctx, http.StatusForbidden, "Forbidden", []response.APIError{
+			{Code: "FORBIDDEN", Detail: "You can only delete your own comments"},
+		})
+		return
+	}
 
-    if existing.UserID != userID {
-        ctx.JSON(http.StatusForbidden, gin.H{"error": "You can only delete your own comments"})
-        return
-    }
-
-    if err := c.uc.DeleteComment(ctx, id); err != nil {
-        ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
-
-    ctx.JSON(http.StatusOK, gin.H{"message": "Comment deleted"})
+	if err := c.uc.DeleteComment(ctx, id); err != nil {
+		response.Error(ctx, http.StatusInternalServerError, "Failed to delete comment", []response.APIError{
+			{Code: "DB_ERROR", Detail: err.Error()},
+		})
+		return
+	}
+	response.Success(ctx, http.StatusOK, "Comment deleted", nil)
 }
-
 
 func (c *CommentController) GetCommentsByPostID(ctx *gin.Context) {
 	postID, err := uuid.Parse(ctx.Param("post_id"))
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid post ID"})
+		response.Error(ctx, http.StatusBadRequest, "Invalid post ID", []response.APIError{
+			{Field: "post_id", Code: "INVALID_UUID", Detail: err.Error()},
+		})
 		return
 	}
 
 	comments, err := c.uc.GetCommentsByPostID(ctx, postID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Error(ctx, http.StatusInternalServerError, "Failed to fetch comments", []response.APIError{
+			{Code: "DB_ERROR", Detail: err.Error()},
+		})
 		return
 	}
-	ctx.JSON(http.StatusOK, comments)
+	response.Success(ctx, http.StatusOK, "Comments retrieved", comments)
 }

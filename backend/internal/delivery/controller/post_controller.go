@@ -4,6 +4,7 @@ import (
 	"backend/internal/entity"
 	"backend/internal/usecase"
 	"backend/pkg/jwt"
+	"backend/pkg/response"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -19,28 +20,27 @@ func NewPostController(postUsecase usecase.PostUsecase) *PostController {
 }
 
 func (pc *PostController) CreatePost(c *gin.Context) {
-	type CreatePostInput struct {
+	var input struct {
 		Title    string `json:"title" binding:"required"`
 		Content  string `json:"content" binding:"required"`
 		ImageURL string `json:"image_url"`
 	}
-	var input CreatePostInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		response.Error(c, http.StatusBadRequest, "Invalid input", []response.APIError{
+			{Code: "INVALID_INPUT", Detail: err.Error()},
+		})
 		return
 	}
 
 	claims, exists := c.Get("user")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		response.Error(c, http.StatusUnauthorized, "Unauthorized", []response.APIError{
+			{Code: "UNAUTHORIZED", Detail: "Missing or invalid authentication token"},
+		})
 		return
 	}
 	userClaims := claims.(*jwt.Claims)
-	userID, err := uuid.Parse(userClaims.UserID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
-		return
-	}
+	userID, _ := uuid.Parse(userClaims.UserID)
 
 	post := &entity.Post{
 		AuthorID: userID,
@@ -48,138 +48,147 @@ func (pc *PostController) CreatePost(c *gin.Context) {
 		Content:  input.Content,
 		ImageURL: input.ImageURL,
 	}
-
 	if err := pc.postUsecase.CreatePost(c.Request.Context(), post); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create post"})
+		response.Error(c, http.StatusInternalServerError, "Failed to create post", []response.APIError{
+			{Code: "DB_ERROR", Detail: err.Error()},
+		})
 		return
 	}
-
-	c.JSON(http.StatusCreated, post)
+	response.Success(c, http.StatusCreated, "Post created", post)
 }
 
-
 func (pc *PostController) GetPostByID(c *gin.Context) {
-	idParam := c.Param("id")
-	id, err := uuid.Parse(idParam)
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post ID"})
+		response.Error(c, http.StatusBadRequest, "Invalid post ID", []response.APIError{
+			{Field: "id", Code: "INVALID_UUID", Detail: err.Error()},
+		})
 		return
 	}
 
 	post, err := pc.postUsecase.GetPostByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "post not found"})
+		response.Error(c, http.StatusNotFound, "Post not found", []response.APIError{
+			{Code: "NOT_FOUND", Detail: err.Error()},
+		})
 		return
 	}
-
-	c.JSON(http.StatusOK, post)
+	response.Success(c, http.StatusOK, "Post retrieved", post)
 }
 
 func (pc *PostController) GetAllPosts(c *gin.Context) {
 	posts, err := pc.postUsecase.GetAllPosts(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch posts"})
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch posts", []response.APIError{
+			{Code: "DB_ERROR", Detail: err.Error()},
+		})
 		return
 	}
-	c.JSON(http.StatusOK, posts)
+	response.Success(c, http.StatusOK, "Posts retrieved", posts)
 }
 
 func (pc *PostController) UpdatePost(c *gin.Context) {
-	type UpdatePostInput struct {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid post ID", []response.APIError{
+			{Field: "id", Code: "INVALID_UUID", Detail: err.Error()},
+		})
+		return
+	}
+
+	var input struct {
 		Title    *string `json:"title"`
 		Content  *string `json:"content"`
 		ImageURL *string `json:"image_url"`
 	}
-	idParam := c.Param("id")
-	id, err := uuid.Parse(idParam)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post ID"})
-		return
-	}
-
-	var input UpdatePostInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		response.Error(c, http.StatusBadRequest, "Invalid input", []response.APIError{
+			{Code: "INVALID_INPUT", Detail: err.Error()},
+		})
 		return
 	}
 
 	claims, exists := c.Get("user")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		response.Error(c, http.StatusUnauthorized, "Unauthorized", []response.APIError{
+			{Code: "UNAUTHORIZED", Detail: "Missing or invalid authentication token"},
+		})
 		return
 	}
 	userClaims := claims.(*jwt.Claims)
-	userID, err := uuid.Parse(userClaims.UserID)
+	userID, _ := uuid.Parse(userClaims.UserID)
+
+	post, err := pc.postUsecase.GetPostByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
+		response.Error(c, http.StatusNotFound, "Post not found", []response.APIError{
+			{Code: "NOT_FOUND", Detail: err.Error()},
+		})
 		return
 	}
-
-	existingPost, err := pc.postUsecase.GetPostByID(c.Request.Context(), id)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "post not found"})
-		return
-	}
-
-	if existingPost.AuthorID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "you are not allowed to update this post"})
+	if post.AuthorID != userID {
+		response.Error(c, http.StatusForbidden, "You are not allowed to update this post", []response.APIError{
+			{Code: "FORBIDDEN", Detail: "You can only update your own posts"},
+		})
 		return
 	}
 
 	if input.Title != nil {
-		existingPost.Title = *input.Title
+		post.Title = *input.Title
 	}
 	if input.Content != nil {
-		existingPost.Content = *input.Content
+		post.Content = *input.Content
 	}
 	if input.ImageURL != nil {
-		existingPost.ImageURL = *input.ImageURL
+		post.ImageURL = *input.ImageURL
 	}
 
-	if err := pc.postUsecase.UpdatePost(c.Request.Context(), existingPost); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update post"})
+	if err := pc.postUsecase.UpdatePost(c.Request.Context(), post); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to update post", []response.APIError{
+			{Code: "DB_ERROR", Detail: err.Error()},
+		})
 		return
 	}
-
-	c.JSON(http.StatusOK, existingPost)
+	response.Success(c, http.StatusOK, "Post updated", post)
 }
 
-
 func (pc *PostController) DeletePost(c *gin.Context) {
-	idParam := c.Param("id")
-	id, err := uuid.Parse(idParam)
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post ID"})
+		response.Error(c, http.StatusBadRequest, "Invalid post ID", []response.APIError{
+			{Field: "id", Code: "INVALID_UUID", Detail: err.Error()},
+		})
 		return
 	}
 
 	claims, exists := c.Get("user")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		response.Error(c, http.StatusUnauthorized, "Unauthorized", []response.APIError{
+			{Code: "UNAUTHORIZED", Detail: "Missing or invalid authentication token"},
+		})
 		return
 	}
 	userClaims := claims.(*jwt.Claims)
-	userID, err := uuid.Parse(userClaims.UserID)
+	userID, _ := uuid.Parse(userClaims.UserID)
+
+	post, err := pc.postUsecase.GetPostByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
+		response.Error(c, http.StatusNotFound, "Post not found", []response.APIError{
+			{Code: "NOT_FOUND", Detail: err.Error()},
+		})
 		return
 	}
-
-	existingPost, err := pc.postUsecase.GetPostByID(c.Request.Context(), id)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "post not found"})
-		return
-	}
-
-	if existingPost.AuthorID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "you are not allowed to delete this post"})
+	if post.AuthorID != userID {
+		response.Error(c, http.StatusForbidden, "You are not allowed to delete this post", []response.APIError{
+			{Code: "FORBIDDEN", Detail: "You can only delete your own posts"},
+		})
 		return
 	}
 
 	if err := pc.postUsecase.DeletePost(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete post"})
+		response.Error(c, http.StatusInternalServerError, "Failed to delete post", []response.APIError{
+			{Code: "DB_ERROR", Detail: err.Error()},
+		})
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "post deleted successfully"})
+	response.Success(c, http.StatusOK, "Post deleted", nil)
 }

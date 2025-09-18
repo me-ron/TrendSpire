@@ -16,20 +16,18 @@ func Ptr[T any](v T) *T {
 }
 
 func ParseDuration(s string) (time.Duration, error) {
-
 	if strings.HasSuffix(s, "d") {
 		days, err := strconv.Atoi(strings.TrimSuffix(s, "d"))
 		if err != nil {
-			log.Fatalf("❌ invalid duration: %v", err)
+			log.Fatalf("❌invalid duration: %v", err)
 			return 0, err
 		}
 		return time.Duration(days) * 24 * time.Hour, nil
 	}
 
-	// fallback to normal ParseDuration
 	dur, err := time.ParseDuration(s)
 	if err != nil {
-		log.Fatalf("❌ invalid duration format: %v", err)
+		log.Fatalf("❌invalid duration format: %v", err)
 		return 0, err
 	}
 	return dur, nil

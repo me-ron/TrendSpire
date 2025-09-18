@@ -4,7 +4,7 @@ import (
 	"backend/internal/entity"
 	"backend/internal/usecase"
 	"backend/pkg/jwt"
-	"context"
+	"backend/pkg/response"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -15,9 +15,7 @@ type UserController struct {
 }
 
 func NewUserController(userUC usecase.UserUsecase) *UserController {
-	return &UserController{
-		userUsecase: userUC,
-	}
+	return &UserController{userUsecase: userUC}
 }
 
 func (uc *UserController) Register(c *gin.Context) {
@@ -27,7 +25,7 @@ func (uc *UserController) Register(c *gin.Context) {
 		Password string `json:"password" binding:"required,min=6"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		response.Error(c, http.StatusBadRequest, "Invalid input", err.Error())
 		return
 	}
 
@@ -36,12 +34,16 @@ func (uc *UserController) Register(c *gin.Context) {
 		Email:    req.Email,
 	}
 
-	if err := uc.userUsecase.Register(context.Background(), user, req.Password); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register user"})
+	if err := uc.userUsecase.Register(c.Request.Context(), user, req.Password); err != nil {
+		response.Error(c, http.StatusConflict, "Failed to register user", err.Error())
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully"})
+	response.Success(c, http.StatusCreated, "User registered successfully", gin.H{
+		"id":       user.ID,
+		"username": user.Username,
+		"email":    user.Email,
+	})
 }
 
 func (uc *UserController) Login(c *gin.Context) {
@@ -50,38 +52,42 @@ func (uc *UserController) Login(c *gin.Context) {
 		Password string `json:"password" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		response.Error(c, http.StatusBadRequest, "Invalid input", err.Error())
 		return
 	}
 
-	resp, err := uc.userUsecase.Login(context.Background(), req.Email, req.Password)
+	resp, err := uc.userUsecase.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+		response.Error(c, http.StatusUnauthorized, "Invalid email or password", nil)
 		return
 	}
 
-	c.JSON(http.StatusOK, resp)
+	response.Success(c, http.StatusOK, "Login successful", resp)
 }
 
 func (uc *UserController) GetProfile(c *gin.Context) {
 	claimsValue, exists := c.Get("user")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		response.Error(c, http.StatusUnauthorized, "Unauthorized", nil)
 		return
 	}
 
 	claims, ok := claimsValue.(*jwt.Claims)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+		response.Error(c, http.StatusUnauthorized, "Invalid token claims", nil)
 		return
 	}
 
 	user, err := uc.userUsecase.GetProfile(c.Request.Context(), claims.UserID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		response.Error(c, http.StatusNotFound, "User not found", nil)
 		return
 	}
 
-	c.JSON(http.StatusOK, user)
+	response.Success(c, http.StatusOK, "Profile retrieved", gin.H{
+		"id":       user.ID,
+		"username": user.Username,
+		"email":    user.Email,
+		"created":  user.CreatedAt,
+	})
 }
-

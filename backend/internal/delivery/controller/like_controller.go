@@ -3,6 +3,7 @@ package controller
 import (
 	"backend/internal/usecase"
 	"backend/pkg/jwt"
+	"backend/pkg/response"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -18,47 +19,48 @@ func NewLikeController(likeUC usecase.LikeUsecase) *LikeController {
 }
 
 func (lc *LikeController) ToggleLike(c *gin.Context) {
-	postIDParam := c.Param("post_id")
-	postID, err := uuid.Parse(postIDParam)
+	postID, err := uuid.Parse(c.Param("post_id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, err.Error())
+		response.Error(c, http.StatusBadRequest, "Invalid post ID", []response.APIError{
+			{Field: "post_id", Code: "INVALID_UUID", Detail: err.Error()},
+		})
 		return
 	}
 
 	claims, exists := c.Get("user")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		response.Error(c, http.StatusUnauthorized, "Unauthorized", []response.APIError{
+			{Code: "UNAUTHORIZED", Detail: "Missing or invalid authentication token"},
+		})
 		return
 	}
 	userClaims := claims.(*jwt.Claims)
-
-	userID, err := uuid.Parse(userClaims.UserID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
-		return
-	}
+	userID, _ := uuid.Parse(userClaims.UserID)
 
 	if err := lc.likeUC.ToggleLike(c.Request.Context(), postID, userID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to toggle like"})
+		response.Error(c, http.StatusInternalServerError, "Failed to toggle like", []response.APIError{
+			{Code: "DB_ERROR", Detail: err.Error()},
+		})
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "like toggled successfully"})
+	response.Success(c, http.StatusOK, "Like toggled", nil)
 }
 
 func (lc *LikeController) GetLikesByPost(c *gin.Context) {
-	postIDParam := c.Param("post_id")
-	postID, err := uuid.Parse(postIDParam)
+	postID, err := uuid.Parse(c.Param("post_id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post ID"})
+		response.Error(c, http.StatusBadRequest, "Invalid post ID", []response.APIError{
+			{Field: "post_id", Code: "INVALID_UUID", Detail: err.Error()},
+		})
 		return
 	}
 
 	likes, err := lc.likeUC.GetLikesByPost(c.Request.Context(), postID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch likes"})
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch likes", []response.APIError{
+			{Code: "DB_ERROR", Detail: err.Error()},
+		})
 		return
 	}
-
-	c.JSON(http.StatusOK, likes)
+	response.Success(c, http.StatusOK, "Likes retrieved", likes)
 }

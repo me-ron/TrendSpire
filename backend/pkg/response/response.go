@@ -1,38 +1,68 @@
 package response
 
 import (
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
+
+type APIError struct {
+	Field  string `json:"field,omitempty"`
+	Code   string `json:"code"`
+	Detail string `json:"detail"`
+}
+
+type Meta struct {
+	RequestID  string      `json:"request_id"`
+	Timestamp  time.Time   `json:"timestamp"`
+	Pagination interface{} `json:"pagination,omitempty"`
+}
 
 type APIResponse struct {
 	Success bool        `json:"success"`
-	Message string      `json:"message,omitempty"`
+	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
-	Error   interface{} `json:"error,omitempty"`
+	Errors  []APIError  `json:"errors,omitempty"`
+	Meta    Meta        `json:"meta"`
 }
 
-func Success(c *gin.Context, status int, message string, data interface{}) {
+func NewMeta() Meta {
+	return Meta{
+		RequestID: uuid.New().String(),
+		Timestamp: time.Now().UTC(),
+	}
+}
+
+func Success(c *gin.Context, status int, message string, data interface{}, meta ...Meta) {
+	m := NewMeta()
+	if len(meta) > 0 {
+		m = meta[0]
+	}
 	c.JSON(status, APIResponse{
 		Success: true,
 		Message: message,
 		Data:    data,
+		Meta:    m,
 	})
 }
 
-func Created(c *gin.Context, message string, data interface{}) {
-	Success(c, http.StatusCreated, message, data)
-}
+func Error(c *gin.Context, status int, message string, detail interface{}, field ...string) {
+	m := NewMeta()
+	apiErr := APIError{
+		Code:   http.StatusText(status),
+		Detail: fmt.Sprintf("%v", detail),
+	}
+	if len(field) > 0 {
+		apiErr.Field = field[0]
+	}
 
-func Error(c *gin.Context, status int, message string, err interface{}) {
 	c.JSON(status, APIResponse{
 		Success: false,
 		Message: message,
-		Error:   err,
+		Errors:  []APIError{apiErr},
+		Meta:    m,
 	})
-}
-
-func ValidationError(c *gin.Context, err interface{}) {
-	Error(c, http.StatusUnprocessableEntity, "Validation failed", err)
 }

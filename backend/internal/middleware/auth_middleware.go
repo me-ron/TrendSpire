@@ -1,9 +1,10 @@
 package middleware
 
 import (
+	"backend/pkg/jwt"
+	"backend/pkg/response"
 	"net/http"
 	"strings"
-	"backend/pkg/jwt"
 
 	"github.com/gin-gonic/gin"
 )
@@ -12,19 +13,28 @@ func AuthMiddleware(jwtService jwt.JWTService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing token"})
+			response.Error(c, http.StatusUnauthorized, "Missing token", []response.APIError{
+				{Code: "MISSING_TOKEN", Detail: "Authorization header is required"},
+			})
+			c.Abort()
 			return
 		}
 
-		tokenParts := strings.Split(authHeader, " ")
-		if len(tokenParts) != 2 || strings.ToLower(tokenParts[0]) != "bearer" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token format"})
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+			response.Error(c, http.StatusUnauthorized, "Invalid token format", []response.APIError{
+				{Code: "INVALID_TOKEN_FORMAT", Detail: "Expected format: Bearer <token>"},
+			})
+			c.Abort()
 			return
 		}
 
-		_, claims, err := jwtService.ValidateToken(tokenParts[1])
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+		token, claims, err := jwtService.ValidateToken(parts[1])
+		if err != nil || !token.Valid {
+			response.Error(c, http.StatusUnauthorized, "Invalid or expired token", []response.APIError{
+				{Code: "INVALID_TOKEN", Detail: err.Error()},
+			})
+			c.Abort()
 			return
 		}
 
